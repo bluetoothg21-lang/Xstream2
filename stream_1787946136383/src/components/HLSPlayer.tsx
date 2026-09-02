@@ -8,14 +8,20 @@ interface SubtitleTrack {
 }
 
 interface HLSPlayerProps {
-  hlsUrl: string;
+  hlsUrl?: string;
+  mediaId?: string;
+  mediaType?: 'movie' | 'tv';
+  src?: string;
   subtitles?: SubtitleTrack[];
   title?: string;
   provider?: string;
   onError?: () => void;
 }
 
-export default function HLSPlayer({ hlsUrl, subtitles = [], title, provider, onError }: HLSPlayerProps) {
+export default function HLSPlayer({ hlsUrl, mediaId, mediaType, src, subtitles = [], title, provider, onError }: HLSPlayerProps) {
+  const resolvedHlsUrl = hlsUrl ?? src ?? (mediaId && mediaType
+    ? `/api/stream/proxy?id=${encodeURIComponent(mediaId)}&type=${mediaType}`
+    : '');
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -31,11 +37,11 @@ export default function HLSPlayer({ hlsUrl, subtitles = [], title, provider, onE
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Proxy the HLS URL through our server to handle CORS
-  const proxiedUrl = `/api/stream/proxy?url=${encodeURIComponent(hlsUrl)}&referer=${encodeURIComponent('https://vidsrc.net/')}`;
+  const proxiedUrl = `/api/stream/proxy?url=${encodeURIComponent(resolvedHlsUrl)}&referer=${encodeURIComponent('https://vidsrc.net/')}`;
 
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || !hlsUrl) return;
+    if (!video || !resolvedHlsUrl) return;
 
     let hlsInstance: import('hls.js').default | null = null;
 
@@ -96,7 +102,7 @@ export default function HLSPlayer({ hlsUrl, subtitles = [], title, provider, onE
         hlsInstance.destroy();
       }
     };
-  }, [hlsUrl, proxiedUrl, onError]);
+  }, [resolvedHlsUrl, proxiedUrl, onError]);
 
   // Video event listeners
   useEffect(() => {

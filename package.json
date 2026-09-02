@@ -1,0 +1,9 @@
+{
+  "name": "xstream2-workspace",
+  "private": true,
+  "scripts": {
+    "dev": "npm --prefix stream_1787946136383 run dev",
+    "build": "npm --prefix stream_1787946136383 run build",
+    "type-check": "npm --prefix stream_1787946136383 run type-check"
+  }
+}

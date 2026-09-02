@@ -1,18 +1,22 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { tmdbService } from '@/lib/services/tmdbService';
 
 type SearchItem = {
   id: number;
   title: string;
   name?: string;
+  mediaType?: string;
+  type?: string;
   media_type?: 'movie' | 'tv';
   poster_path?: string | null;
   backdrop_path?: string | null;
   vote_average?: number;
   release_date?: string;
   first_air_date?: string;
+  air_date?: string;
 };
 
 const posterUrl = (path?: string | null, size: 'w342' | 'w500' | 'original' = 'w342') => {
@@ -21,6 +25,7 @@ const posterUrl = (path?: string | null, size: 'w342' | 'w500' | 'original' = 'w
 };
 
 export default function BrowseSearchPage() {
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [movies, setMovies] = useState<SearchItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -114,26 +119,38 @@ export default function BrowseSearchPage() {
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-6">
-          {filteredMovies.map((movie) => {
-            const title = movie.title || movie.name || 'Untitled Content';
-            const releaseDate = movie.release_date || movie.first_air_date || 'N/A';
+          {filteredMovies.map((item) => {
+            const title = item.title || item.name || 'Untitled Content';
+            const releaseDate = item.release_date || item.first_air_date || 'N/A';
             const year = releaseDate.split('-')[0];
-            const rating = movie.vote_average ? movie.vote_average.toFixed(1) : 'N/A';
-            const mediaType = movie.media_type || (movie.first_air_date ? 'tv' : 'movie');
+            const rating = item.vote_average ? item.vote_average.toFixed(1) : 'N/A';
+            const explicitType = item.mediaType || item.media_type;
+            let safeType = explicitType?.toLowerCase() || 'movie';
+
+            if (!explicitType && item.type?.toLowerCase().includes('tv')) {
+              safeType = 'tv';
+            } else if (!explicitType && (item.first_air_date || item.air_date)) {
+              safeType = 'tv';
+            }
+
+            if (safeType !== 'tv' && safeType !== 'movie') {
+              safeType = 'movie';
+            }
 
             return (
               <div
-                key={movie.id}
+                key={item.id}
+                onClick={() => router.push(`/media/${safeType}/${item.id}`)}
                 className="group relative flex flex-col overflow-hidden rounded-xl border border-zinc-900 bg-zinc-900 transition hover:border-zinc-800"
               >
                 <div className="relative aspect-[2/3] w-full overflow-hidden bg-zinc-950">
                   <img
-                    src={posterUrl(movie.poster_path)}
+                    src={posterUrl(item.poster_path)}
                     alt={title}
                     loading="lazy"
                     className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
                   />
-                  {movie.vote_average && movie.vote_average > 0 && (
+                  {item.vote_average && item.vote_average > 0 && (
                     <div className="absolute right-2 top-2 rounded bg-black/70 px-2 py-0.5 text-[10px] font-bold text-amber-400 backdrop-blur-sm">
                       ★ {rating}
                     </div>
@@ -147,7 +164,7 @@ export default function BrowseSearchPage() {
                   <div className="mt-1 flex items-center justify-between text-[10px] font-medium text-zinc-500">
                     <span>{year}</span>
                     <span className="rounded border border-zinc-800 px-1 text-[8px] uppercase">
-                      {mediaType}
+                      {safeType}
                     </span>
                   </div>
                 </div>

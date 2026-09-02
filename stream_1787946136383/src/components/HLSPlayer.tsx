@@ -1,5 +1,6 @@
 'use client';
 import React, { useEffect, useRef, useState } from 'react';
+import { watchHistoryService } from '@/lib/services/watchHistoryService';
 
 interface SubtitleTrack {
   url: string;
@@ -23,6 +24,8 @@ export default function HLSPlayer({ hlsUrl, mediaId, mediaType, src, subtitles =
     ? `/api/stream/proxy?id=${encodeURIComponent(mediaId)}&type=${mediaType}`
     : '');
   const videoRef = useRef<HTMLVideoElement>(null);
+  const lastSavedTime = useRef(0);
+  const progressSaveInFlight = useRef<Promise<unknown> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -103,6 +106,48 @@ export default function HLSPlayer({ hlsUrl, mediaId, mediaType, src, subtitles =
       }
     };
   }, [resolvedHlsUrl, proxiedUrl, onError]);
+
+  // Persist authenticated playback checkpoints without writing on every timeupdate event.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !mediaId || !mediaType) return;
+
+    const saveProgress = () => {
+      if (!video.duration || !Number.isFinite(video.duration)) return;
+      if (Math.abs(video.currentTime - lastSavedTime.current) < 10) return;
+      if (progressSaveInFlight.current) return;
+
+      lastSavedTime.current = video.currentTime;
+      progressSaveInFlight.current = watchHistoryService.upsertProgress({
+        mediaId,
+        mediaType,
+        currentTime: video.currentTime,
+        duration: video.duration,
+      }).finally(() => {
+        progressSaveInFlight.current = null;
+      });
+    };
+
+    const saveCompletedProgress = () => {
+      if (!video.duration || !Number.isFinite(video.duration)) return;
+      lastSavedTime.current = video.currentTime;
+      progressSaveInFlight.current = watchHistoryService.upsertProgress({
+        mediaId,
+        mediaType,
+        currentTime: video.duration,
+        duration: video.duration,
+      }).finally(() => {
+        progressSaveInFlight.current = null;
+      });
+    };
+
+    video.addEventListener('timeupdate', saveProgress);
+    video.addEventListener('ended', saveCompletedProgress);
+    return () => {
+      video.removeEventListener('timeupdate', saveProgress);
+      video.removeEventListener('ended', saveCompletedProgress);
+    };
+  }, [mediaId, mediaType]);
 
   // Video event listeners
   useEffect(() => {

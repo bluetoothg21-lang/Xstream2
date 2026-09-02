@@ -143,6 +143,32 @@ TO authenticated
 USING (user_id = auth.uid())
 WITH CHECK (user_id = auth.uid());
 
+-- 9. Watch Progress Table
+CREATE TABLE IF NOT EXISTS public.watch_progress (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    media_id TEXT NOT NULL,
+    media_type TEXT NOT NULL CHECK (media_type IN ('movie', 'tv')),
+    current_time NUMERIC NOT NULL CHECK (current_time >= 0),
+    duration NUMERIC NOT NULL CHECK (duration > 0),
+    progress_percent INTEGER NOT NULL CHECK (progress_percent >= 0 AND progress_percent <= 100),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (user_id, media_id, media_type)
+);
+
+CREATE INDEX IF NOT EXISTS idx_watch_progress_user_updated
+ON public.watch_progress(user_id, updated_at DESC);
+
+ALTER TABLE public.watch_progress ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "users_manage_own_watch_progress" ON public.watch_progress;
+CREATE POLICY "users_manage_own_watch_progress"
+ON public.watch_progress
+FOR ALL
+TO authenticated
+USING (user_id = auth.uid())
+WITH CHECK (user_id = auth.uid());
+
 -- 10. Triggers
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created

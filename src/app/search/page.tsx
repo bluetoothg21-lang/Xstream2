@@ -30,6 +30,7 @@ export default function BrowseSearchPage() {
   const [movies, setMovies] = useState<SearchItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [activeFilter, setActiveFilter] = useState<'all' | 'movie' | 'tv'>('all');
+  const [isRedirecting, setIsRedirecting] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadTrending() {
@@ -75,6 +76,12 @@ export default function BrowseSearchPage() {
     if (activeFilter === 'tv') return item.media_type === 'tv';
     return true;
   });
+
+  const handleCardClick = (mediaType: string, id: string) => {
+    if (isRedirecting) return;
+    setIsRedirecting(id);
+    router.push(`/media/${mediaType}/${id}`);
+  };
 
   return (
     <div className="min-h-screen bg-zinc-950 px-8 py-6 text-white">
@@ -137,20 +144,36 @@ export default function BrowseSearchPage() {
               safeType = 'movie';
             }
 
+            const isThisCardLoading = isRedirecting === item.id.toString();
+
             return (
               <div
                 key={item.id}
-                onClick={() => router.push(`/media/${safeType}/${item.id}`)}
-                className="group relative flex flex-col overflow-hidden rounded-xl border border-zinc-900 bg-zinc-900 transition hover:border-zinc-800"
+                onClick={() => handleCardClick(safeType, item.id.toString())}
+                className={`group relative flex flex-col overflow-hidden rounded-xl border bg-zinc-900 transition duration-300 ${
+                  isThisCardLoading
+                    ? 'scale-[0.98] border-purple-500 opacity-80'
+                    : 'border-zinc-900 hover:-translate-y-1 hover:border-purple-500/40'
+                }`}
               >
                 <div className="relative aspect-[2/3] w-full overflow-hidden bg-zinc-950">
                   <img
                     src={posterUrl(item.poster_path)}
                     alt={title}
                     loading="lazy"
-                    className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                    className={`h-full w-full object-cover transition duration-300 ${
+                      isThisCardLoading ? 'blur-[2px]' : 'group-hover:scale-105'
+                    }`}
                   />
-                  {item.vote_average && item.vote_average > 0 && (
+                  {isThisCardLoading && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-purple-950/40 backdrop-blur-sm">
+                      <div className="h-8 w-8 animate-spin rounded-full border-4 border-purple-500 border-t-transparent" />
+                      <span className="animate-pulse text-[10px] font-bold uppercase tracking-widest text-purple-200">
+                        Loading Player...
+                      </span>
+                    </div>
+                  )}
+                  {!isThisCardLoading && item.vote_average && item.vote_average > 0 && (
                     <div className="absolute right-2 top-2 rounded bg-black/70 px-2 py-0.5 text-[10px] font-bold text-amber-400 backdrop-blur-sm">
                       ★ {rating}
                     </div>
@@ -158,7 +181,9 @@ export default function BrowseSearchPage() {
                 </div>
 
                 <div className="flex flex-grow flex-col justify-between p-3">
-                  <h3 className="line-clamp-1 text-xs font-semibold text-zinc-100 transition group-hover:text-purple-400">
+                  <h3 className={`line-clamp-1 text-xs font-semibold transition ${
+                    isThisCardLoading ? 'text-purple-400' : 'text-zinc-100 group-hover:text-purple-400'
+                  }`}>
                     {title}
                   </h3>
                   <div className="mt-1 flex items-center justify-between text-[10px] font-medium text-zinc-500">
